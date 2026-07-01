@@ -1,0 +1,906 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Calendar">
+<meta name="theme-color" content="#378add">
+<title>Shared Calendar</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icons/icon-192.svg">
+<style>
+:root {
+  --blue:#378add; --blue-light:#e6f1fb; --blue-dark:#185fa5;
+  --teal:#1d9e75; --coral:#d85a30; --pink:#d4537e;
+  --purple:#7f77dd; --amber:#ba7517; --green:#639922; --gray:#888780;
+  --surface:#ffffff; --surface-1:#f7f7f5; --surface-2:#efefec;
+  --border:rgba(0,0,0,0.10); --border-strong:rgba(0,0,0,0.18);
+  --text:#1a1a18; --text-2:#5a5a56; --text-3:#9a9a96;
+  --radius:10px;
+  --safe-bottom:env(safe-area-inset-bottom,0px);
+  --safe-top:env(safe-area-inset-top,0px);
+}
+@media(prefers-color-scheme:dark){:root{
+  --surface:#1c1c1e; --surface-1:#2c2c2e; --surface-2:#3a3a3c;
+  --border:rgba(255,255,255,0.10); --border-strong:rgba(255,255,255,0.18);
+  --text:#f2f2f0; --text-2:#aeaead; --text-3:#6e6e6c; --blue-light:#0c2d4a;
+}}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;overflow:hidden}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;background:var(--surface-1);color:var(--text);display:flex;flex-direction:column;padding-top:var(--safe-top)}
+#app{display:flex;flex-direction:column;height:100%;overflow:hidden}
+
+/* HEADER */
+.header{background:var(--blue);padding:12px 16px 10px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.header-left{display:flex;align-items:center;gap:10px}
+.header-icon{font-size:20px}
+.header-title{font-size:17px;font-weight:600;color:#fff;letter-spacing:-0.3px}
+.header-sub{font-size:11px;color:rgba(255,255,255,0.7);margin-top:1px}
+.header-right{display:flex;align-items:center;gap:8px}
+.header-btn{width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,0.2);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#fff;font-size:16px;transition:background 0.15s;position:relative}
+.header-btn:active{background:rgba(255,255,255,0.35)}
+.header-btn .admin-dot{position:absolute;top:2px;right:2px;width:8px;height:8px;background:#fac775;border-radius:50%;border:1.5px solid var(--blue)}
+.user-avatar-btn{width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,0.25);border:1.5px solid rgba(255,255,255,0.5);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;color:#fff}
+
+/* BOTTOM TAB BAR */
+.tab-bar{display:flex;background:var(--surface);border-top:0.5px solid var(--border);flex-shrink:0;padding-bottom:var(--safe-bottom)}
+.tab-btn{flex:1;padding:10px 0 8px;border:none;background:transparent;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--text-3);font-size:10px;font-weight:500;font-family:inherit;transition:color 0.15s}
+.tab-btn.active{color:var(--blue)}
+.tab-icon{font-size:20px;line-height:1}
+
+/* VIEWS */
+.view{display:none;flex:1;flex-direction:column;overflow:hidden}
+.view.active{display:flex}
+
+/* MONTH NAV */
+.month-nav{background:var(--surface);padding:10px 16px 8px;display:flex;align-items:center;justify-content:space-between;border-bottom:0.5px solid var(--border);flex-shrink:0}
+.nav-arrow{width:34px;height:34px;border-radius:8px;background:var(--surface-1);border:0.5px solid var(--border-strong);cursor:pointer;font-size:18px;color:var(--text);display:flex;align-items:center;justify-content:center;transition:background 0.12s}
+.nav-arrow:active{background:var(--surface-2)}
+.month-title{font-size:17px;font-weight:600;color:var(--text)}
+
+/* DAY LABELS */
+.day-labels{display:grid;grid-template-columns:repeat(7,1fr);background:var(--surface);padding:0 8px 6px;flex-shrink:0}
+.day-label{text-align:center;font-size:11px;font-weight:600;color:var(--text-3);padding:2px 0}
+.day-label.weekend{color:var(--coral)}
+
+/* CALENDAR GRID */
+.cal-scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:0.5px;background:var(--border)}
+.cal-day{background:var(--surface);min-height:70px;padding:5px 4px 4px;cursor:pointer;transition:background 0.1s;position:relative}
+.cal-day:active{background:var(--surface-1)}
+.cal-day.other{background:var(--surface-1)}
+.cal-day.other .day-num{color:var(--text-3)}
+.cal-day.selected{background:var(--blue-light)}
+.cal-day.today .day-num{background:var(--blue);color:#fff;border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;font-weight:700}
+.day-num{font-size:13px;font-weight:500;width:24px;height:24px;display:flex;align-items:center;justify-content:center;margin-bottom:3px}
+.ev-chip{font-size:10px;line-height:1.35;padding:1.5px 4px;border-radius:3px;margin-bottom:1.5px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;max-width:100%;font-weight:500}
+.ev-more{font-size:9px;color:var(--text-3);padding-left:4px;margin-top:1px}
+
+/* DAY PANEL */
+.day-panel{background:var(--surface);border-top:0.5px solid var(--border);flex-shrink:0;max-height:42vh;display:flex;flex-direction:column}
+.panel-header{display:flex;align-items:center;justify-content:space-between;padding:12px 16px 8px;flex-shrink:0}
+.panel-date-txt{font-size:14px;font-weight:600;color:var(--text)}
+.panel-add-btn{height:30px;padding:0 14px;background:var(--blue);color:#fff;border:none;border-radius:15px;cursor:pointer;font-size:13px;font-weight:600;display:flex;align-items:center;gap:4px;transition:opacity 0.15s}
+.panel-add-btn:active{opacity:0.8}
+.event-list{overflow-y:auto;padding:0 12px;flex:1;padding-bottom:calc(12px + var(--safe-bottom))}
+.ev-row{display:flex;align-items:flex-start;gap:10px;padding:9px 10px;margin-bottom:6px;border-radius:10px;border:0.5px solid var(--border);background:var(--surface)}
+.ev-bar{width:3.5px;border-radius:2px;align-self:stretch;min-height:32px;flex-shrink:0}
+.ev-body{flex:1;min-width:0}
+.ev-title-txt{font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ev-meta{font-size:11px;color:var(--text-3);margin-top:2px}
+.ev-del{background:none;border:none;cursor:pointer;color:var(--text-3);font-size:20px;line-height:1;padding:0;flex-shrink:0}
+.ev-del:active{color:var(--coral)}
+.empty-state{text-align:center;padding:20px 0;color:var(--text-3);font-size:13px}
+.no-day{text-align:center;padding:18px 0;color:var(--text-3);font-size:13px}
+
+/* PEOPLE VIEW */
+.people-scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:16px 16px calc(16px + var(--safe-bottom))}
+.section-hd{font-size:11px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:0.6px;margin:0 0 8px}
+.user-card{display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--surface);border-radius:12px;border:0.5px solid var(--border);margin-bottom:8px}
+.u-avatar{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;color:#fff;flex-shrink:0}
+.u-info{flex:1;min-width:0}
+.u-name{font-size:14px;font-weight:600;color:var(--text)}
+.u-meta{font-size:11px;color:var(--text-3);margin-top:2px}
+.u-badge{display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;margin-top:3px}
+.badge-admin{background:#faeeda;color:#854f0b}
+.badge-you{background:var(--blue-light);color:var(--blue-dark)}
+.badge-general{background:var(--surface-2);color:var(--text-3)}
+.u-actions{display:flex;gap:6px;flex-shrink:0}
+.u-action-btn{padding:6px 10px;border-radius:8px;border:0.5px solid var(--border-strong);background:var(--surface-1);color:var(--text-2);font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap}
+.u-action-btn:active{background:var(--surface-2)}
+.u-action-btn.danger{color:var(--coral);border-color:var(--coral)}
+.people-empty{text-align:center;padding:40px 20px;color:var(--text-3);font-size:13px}
+.people-info-box{background:var(--blue-light);border-radius:10px;padding:12px 14px;margin-bottom:16px;font-size:12px;color:var(--blue-dark);line-height:1.5}
+
+/* BOTTOM SAFE */
+.safe-bottom{height:var(--safe-bottom);background:var(--surface);flex-shrink:0}
+
+/* MODALS */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:300;display:flex;align-items:flex-end;justify-content:center;opacity:0;pointer-events:none;transition:opacity 0.2s}
+.overlay.show{opacity:1;pointer-events:all}
+.sheet{background:var(--surface);border-radius:20px 20px 0 0;padding:0 0 calc(24px + var(--safe-bottom));width:100%;max-width:520px;transform:translateY(100%);transition:transform 0.25s cubic-bezier(0.32,0.72,0,1);max-height:90vh;overflow-y:auto}
+.overlay.show .sheet{transform:translateY(0)}
+.sheet-handle{width:36px;height:4px;background:var(--border-strong);border-radius:2px;margin:12px auto 16px}
+.sheet-title{font-size:17px;font-weight:600;padding:0 20px 14px;color:var(--text);border-bottom:0.5px solid var(--border)}
+.sheet-body{padding:16px 20px 0}
+.field-lbl{font-size:12px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px}
+.field-wrap{margin-bottom:14px}
+.field-input{width:100%;padding:11px 13px;border:0.5px solid var(--border-strong);border-radius:10px;font-size:15px;font-family:inherit;background:var(--surface-1);color:var(--text);outline:none;-webkit-appearance:none;appearance:none}
+.field-input:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(55,138,221,0.15)}
+.color-row{display:flex;gap:10px;flex-wrap:wrap}
+.color-dot{width:30px;height:30px;border-radius:50%;cursor:pointer;border:2.5px solid transparent;transition:transform 0.15s;position:relative}
+.color-dot.on{border-color:var(--text);transform:scale(1.18)}
+.color-dot.on::after{content:'✓';position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:700}
+.sheet-actions{display:flex;gap:10px;padding:16px 20px 0}
+.btn-cancel-s{flex:1;padding:13px;border:0.5px solid var(--border-strong);border-radius:12px;background:var(--surface-1);color:var(--text);font-size:15px;font-weight:500;cursor:pointer;font-family:inherit}
+.btn-save-s{flex:2;padding:13px;border:none;border-radius:12px;background:var(--blue);color:#fff;font-size:15px;font-weight:600;cursor:pointer;font-family:inherit;transition:opacity 0.15s}
+.btn-save-s:disabled{opacity:0.45}
+.btn-save-s:active{opacity:0.85}
+.btn-danger-s{flex:2;padding:13px;border:none;border-radius:12px;background:var(--coral);color:#fff;font-size:15px;font-weight:600;cursor:pointer;font-family:inherit}
+
+/* INSTALL BANNER */
+.install-banner{background:var(--blue);color:#fff;padding:11px 16px;display:flex;align-items:center;gap:10px;flex-shrink:0;cursor:pointer}
+.install-banner.hidden{display:none}
+.install-ico{font-size:22px}
+.install-text{flex:1;font-size:13px;font-weight:500}
+.install-text small{display:block;font-size:11px;opacity:0.75;font-weight:400}
+.install-cta{font-size:12px;font-weight:700;background:rgba(255,255,255,0.2);border-radius:20px;padding:5px 12px;white-space:nowrap}
+.install-close{font-size:18px;opacity:0.7;padding:4px}
+
+/* TOAST */
+.sync-toast{position:fixed;bottom:calc(60px + var(--safe-bottom));left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.75);color:#fff;padding:8px 16px;border-radius:20px;font-size:12px;z-index:400;pointer-events:none;opacity:0;transition:opacity 0.2s;white-space:nowrap}
+.sync-toast.show{opacity:1}
+
+/* CONFIRM DIALOG */
+.confirm-dialog{position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:500;display:flex;align-items:center;justify-content:center;padding:24px;opacity:0;pointer-events:none;transition:opacity 0.15s}
+.confirm-dialog.show{opacity:1;pointer-events:all}
+.confirm-box{background:var(--surface);border-radius:16px;padding:24px 20px 16px;width:100%;max-width:320px}
+.confirm-title{font-size:16px;font-weight:700;margin-bottom:8px;color:var(--text)}
+.confirm-msg{font-size:14px;color:var(--text-2);line-height:1.5;margin-bottom:20px}
+.confirm-btns{display:flex;gap:10px}
+
+/* SHARE extras */
+.share-code{font-family:monospace;font-size:12px;background:var(--surface-1);border:0.5px solid var(--border-strong);border-radius:8px;padding:10px 12px;word-break:break-all;color:var(--text-2);max-height:100px;overflow-y:auto;margin-bottom:12px}
+.profile-row{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:0.5px solid var(--border);margin-bottom:12px}
+.profile-avatar{width:48px;height:48px;border-radius:50%;background:var(--blue);display:flex;align-items:center;justify-content:center;color:#fff;font-size:18px;font-weight:600;flex-shrink:0}
+.profile-info{flex:1}
+.profile-name{font-size:16px;font-weight:600}
+.profile-hint{font-size:12px;color:var(--text-3)}
+.role-row{display:flex;gap:8px;margin-top:4px}
+.role-chip{padding:4px 10px;border-radius:20px;font-size:12px;font-weight:600}
+
+@media(min-height:700px){.cal-day{min-height:82px}}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- Install banner -->
+  <div class="install-banner hidden" id="installBanner" onclick="triggerInstall()">
+    <div class="install-ico">📲</div>
+    <div class="install-text">Add to home screen<small>Works offline · instant access</small></div>
+    <div class="install-cta">Install</div>
+    <div class="install-close" onclick="dismissInstall(event)">✕</div>
+  </div>
+
+  <!-- Header -->
+  <div class="header">
+    <div class="header-left">
+      <div class="header-icon">📅</div>
+      <div>
+        <div class="header-title">Shared Calendar</div>
+        <div class="header-sub" id="syncStatus">Loading…</div>
+      </div>
+    </div>
+    <div class="header-right">
+      <button class="header-btn" onclick="openShare()" title="Share / sync">⇅</button>
+      <div class="user-avatar-btn" id="avatarBtn" onclick="openProfile()">?</div>
+    </div>
+  </div>
+
+  <!-- ── CALENDAR VIEW ── -->
+  <div class="view active" id="viewCalendar">
+    <div class="month-nav">
+      <button class="nav-arrow" onclick="changeMonth(-1)" aria-label="Previous month">‹</button>
+      <span class="month-title" id="monthTitle"></span>
+      <button class="nav-arrow" onclick="changeMonth(1)" aria-label="Next month">›</button>
+    </div>
+    <div class="day-labels">
+      <div class="day-label weekend">Su</div>
+      <div class="day-label">Mo</div><div class="day-label">Tu</div>
+      <div class="day-label">We</div><div class="day-label">Th</div>
+      <div class="day-label">Fr</div>
+      <div class="day-label weekend">Sa</div>
+    </div>
+    <div class="cal-scroll">
+      <div class="cal-grid" id="calGrid"></div>
+    </div>
+    <div class="day-panel" id="dayPanel">
+      <div class="panel-header">
+        <div class="panel-date-txt" id="panelDate">Select a day</div>
+        <button class="panel-add-btn" id="addBtn" onclick="openAdd()" style="display:none">
+          <span>+</span> Add
+        </button>
+      </div>
+      <div class="event-list" id="eventList">
+        <div class="no-day">Tap a day to see events</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── PEOPLE VIEW ── -->
+  <div class="view" id="viewPeople">
+    <div class="people-scroll" id="peopleScroll">
+      <!-- rendered by JS -->
+    </div>
+  </div>
+
+  <!-- Tab bar -->
+  <div class="tab-bar">
+    <button class="tab-btn active" id="tabCalBtn" onclick="switchTab('calendar')">
+      <span class="tab-icon">📅</span>Calendar
+    </button>
+    <button class="tab-btn" id="tabPeopleBtn" onclick="switchTab('people')">
+      <span class="tab-icon">👥</span>People
+    </button>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="sync-toast" id="toast"></div>
+
+<!-- Confirm dialog -->
+<div class="confirm-dialog" id="confirmDialog">
+  <div class="confirm-box">
+    <div class="confirm-title" id="confirmTitle"></div>
+    <div class="confirm-msg" id="confirmMsg"></div>
+    <div class="confirm-btns">
+      <button class="btn-cancel-s" style="flex:1" onclick="confirmCancel()">Cancel</button>
+      <button class="btn-danger-s" style="flex:1" id="confirmOkBtn" onclick="confirmOk()">Remove</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add event modal -->
+<div class="overlay" id="addOverlay" onclick="overlayClick(event,'addOverlay')">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title" id="addSheetTitle">New event</div>
+    <div class="sheet-body">
+      <div class="field-wrap">
+        <div class="field-lbl">Title</div>
+        <input class="field-input" id="evTitle" placeholder="e.g. Team meeting" maxlength="60" oninput="checkSave()">
+      </div>
+      <div class="field-wrap">
+        <div class="field-lbl">Time (optional)</div>
+        <input class="field-input" type="time" id="evTime">
+      </div>
+      <div class="field-wrap">
+        <div class="field-lbl">End time (optional)</div>
+        <input class="field-input" type="time" id="evEndTime">
+      </div>
+      <div class="field-wrap">
+        <div class="field-lbl">Notes (optional)</div>
+        <input class="field-input" id="evNotes" placeholder="Location, link, details…" maxlength="120">
+      </div>
+      <div class="field-wrap">
+        <div class="field-lbl">Color</div>
+        <div class="color-row" id="colorRow"></div>
+      </div>
+    </div>
+    <div class="sheet-actions">
+      <button class="btn-cancel-s" onclick="closeAdd()">Cancel</button>
+      <button class="btn-save-s" id="saveBtn" onclick="saveEvent()" disabled>Add event</button>
+    </div>
+  </div>
+</div>
+
+<!-- Profile modal -->
+<div class="overlay" id="profileOverlay" onclick="overlayClick(event,'profileOverlay')">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title">Your profile</div>
+    <div class="sheet-body">
+      <div class="profile-row">
+        <div class="profile-avatar" id="profileAvatar">?</div>
+        <div class="profile-info">
+          <div class="profile-name" id="profileNameDisplay">Not set</div>
+          <div id="profileRoleRow" class="role-row"></div>
+          <div class="profile-hint" style="margin-top:4px">Your name appears on events you add</div>
+        </div>
+      </div>
+      <div class="field-wrap">
+        <div class="field-lbl">Your name</div>
+        <input class="field-input" id="nameInput" placeholder="e.g. Alex" maxlength="30">
+      </div>
+    </div>
+    <div class="sheet-actions">
+      <button class="btn-cancel-s" onclick="closeProfile()">Cancel</button>
+      <button class="btn-save-s" onclick="saveName()">Save name</button>
+    </div>
+  </div>
+</div>
+
+<!-- Share/sync modal -->
+<div class="overlay" id="shareOverlay" onclick="overlayClick(event,'shareOverlay')">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title">Share & sync</div>
+    <div class="sheet-body">
+      <p style="font-size:13px;color:var(--text-2);margin-bottom:16px;line-height:1.5">
+        Export your events and user data, then send it to others. They import it to sync up.
+      </p>
+      <div class="field-lbl" style="margin-bottom:6px">Export</div>
+      <div class="share-code" id="exportCode">—</div>
+      <div class="sheet-actions" style="padding:0 0 12px;gap:8px">
+        <button class="btn-save-s" style="flex:1" onclick="copyExport()">📋 Copy</button>
+        <button class="btn-save-s" style="flex:1;background:var(--teal)" onclick="shareExport()">↗ Share</button>
+      </div>
+      <div style="border-top:0.5px solid var(--border);padding-top:14px;margin-top:4px">
+        <div class="field-lbl" style="margin-bottom:6px">Import from someone</div>
+        <textarea class="field-input" id="importCode" rows="3" placeholder="Paste exported data here…" style="resize:none;font-family:monospace;font-size:12px"></textarea>
+        <div class="sheet-actions" style="padding:8px 0 0">
+          <button class="btn-save-s" style="flex:1;background:var(--purple)" onclick="importData()">↓ Import & merge</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── CONSTANTS ──
+const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+const DAYS_LONG = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+const MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const COLORS = ['#378add','#1d9e75','#d85a30','#d4537e','#7f77dd','#ba7517','#639922','#888780'];
+const AVATAR_COLORS = ['#378add','#1d9e75','#d85a30','#d4537e','#7f77dd','#ba7517','#639922'];
+
+// ── STATE ──
+let year = new Date().getFullYear();
+let month = new Date().getMonth();
+let selDate = null;
+let selColor = COLORS[0];
+let events = {};
+let users = {};       // uid → { uid, name, role:'admin'|'general', joinedAt, avatarColor }
+let myUid = '';
+let myUser = null;
+let deferredInstall = null;
+let confirmCallback = null;
+const todayD = new Date(); todayD.setHours(0,0,0,0);
+
+// ── INIT ──
+function init() {
+  loadAll();
+  buildColorRow();
+  renderCalendar();
+  renderPeople();
+  checkInstall();
+
+  const params = new URLSearchParams(location.search);
+  if (params.get('view') === 'today') {
+    const t = new Date();
+    selDate = {y:t.getFullYear(), m:t.getMonth(), d:t.getDate()};
+    year = selDate.y; month = selDate.m;
+    renderCalendar(); renderPanel();
+  }
+  if (params.get('action') === 'add') {
+    const t = new Date();
+    selDate = {y:t.getFullYear(), m:t.getMonth(), d:t.getDate()};
+    renderCalendar(); renderPanel();
+    setTimeout(openAdd, 400);
+  }
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('./sw.js').catch(() => {});
+  }
+}
+
+// ── STORAGE ──
+function loadAll() {
+  try { events = JSON.parse(localStorage.getItem('cal_events_v2') || '{}'); } catch(e) { events = {}; }
+  try { users = JSON.parse(localStorage.getItem('cal_users_v1') || '{}'); } catch(e) { users = {}; }
+  myUid = localStorage.getItem('cal_myuid') || '';
+
+  // First launch: create this user
+  if (!myUid) {
+    myUid = 'u' + Date.now().toString(36) + Math.random().toString(36).slice(2,5);
+    localStorage.setItem('cal_myuid', myUid);
+  }
+
+  // Register / refresh this user in users map
+  const storedName = localStorage.getItem('cal_user') || '';
+  const isFirstUser = Object.keys(users).length === 0;
+  if (!users[myUid]) {
+    users[myUid] = {
+      uid: myUid,
+      name: storedName,
+      role: isFirstUser ? 'admin' : 'general', // first user is admin
+      joinedAt: Date.now(),
+      avatarColor: AVATAR_COLORS[Object.keys(users).length % AVATAR_COLORS.length]
+    };
+  } else {
+    // Keep name in sync
+    if (storedName && storedName !== users[myUid].name) {
+      users[myUid].name = storedName;
+    }
+  }
+  myUser = users[myUid];
+  saveUsers();
+  updateUserUI();
+  updateSyncStatus();
+}
+
+function saveEvents() {
+  localStorage.setItem('cal_events_v2', JSON.stringify(events));
+  updateSyncStatus();
+  toast('Saved');
+}
+function saveUsers() {
+  localStorage.setItem('cal_users_v1', JSON.stringify(users));
+}
+function updateSyncStatus() {
+  const count = Object.values(events).reduce((s,a)=>s+a.length,0);
+  const ucount = Object.keys(users).length;
+  document.getElementById('syncStatus').textContent = `${count} events · ${ucount} user${ucount!==1?'s':''}`;
+}
+function dateKey(y,m,d) { return `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`; }
+function isAdmin() { return myUser && myUser.role === 'admin'; }
+
+// ── USER UI ──
+function updateUserUI() {
+  myUser = users[myUid];
+  if (!myUser) return;
+  const initials = myUser.name ? myUser.name.trim().split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase() : '?';
+  document.getElementById('avatarBtn').textContent = initials;
+  document.getElementById('profileAvatar').textContent = initials;
+  document.getElementById('profileAvatar').style.background = myUser.avatarColor || 'var(--blue)';
+  document.getElementById('profileNameDisplay').textContent = myUser.name || 'Not set';
+  // Role chips in profile
+  const rr = document.getElementById('profileRoleRow');
+  rr.innerHTML = `<span class="role-chip ${myUser.role==='admin'?'badge-admin':'badge-general'}">${myUser.role==='admin'?'⭐ Admin':'Member'}</span>`;
+  // Admin dot on people tab button
+  const peopleTab = document.getElementById('tabPeopleBtn');
+  peopleTab.innerHTML = `<span class="tab-icon">👥</span>People`;
+}
+
+function openProfile() {
+  document.getElementById('nameInput').value = myUser.name || '';
+  show('profileOverlay');
+}
+function closeProfile() { hide('profileOverlay'); }
+function saveName() {
+  const v = document.getElementById('nameInput').value.trim();
+  if (v) {
+    myUser.name = v;
+    localStorage.setItem('cal_user', v);
+    saveUsers();
+    updateUserUI();
+    renderPeople();
+  }
+  hide('profileOverlay');
+}
+
+// ── TAB SWITCHING ──
+function switchTab(tab) {
+  document.getElementById('viewCalendar').classList.toggle('active', tab==='calendar');
+  document.getElementById('viewPeople').classList.toggle('active', tab==='people');
+  document.getElementById('tabCalBtn').classList.toggle('active', tab==='calendar');
+  document.getElementById('tabPeopleBtn').classList.toggle('active', tab==='people');
+  if (tab === 'people') renderPeople();
+}
+
+// ── PEOPLE VIEW ──
+function avatarInitials(name) {
+  return name ? name.trim().split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase() : '?';
+}
+
+function renderPeople() {
+  const scroll = document.getElementById('peopleScroll');
+  const userList = Object.values(users).sort((a,b) => {
+    if (a.role === 'admin' && b.role !== 'admin') return -1;
+    if (b.role === 'admin' && a.role !== 'admin') return 1;
+    return (a.name||'').localeCompare(b.name||'');
+  });
+
+  let html = '';
+
+  // Info box for admins
+  if (isAdmin()) {
+    html += `<div class="people-info-box">⭐ You're an admin. You can promote members to admin or remove users from the calendar.</div>`;
+  } else {
+    html += `<div class="people-info-box" style="background:var(--surface-2);color:var(--text-2)">This is everyone with access to this shared calendar. Admins can manage membership.</div>`;
+  }
+
+  const admins = userList.filter(u => u.role === 'admin');
+  const members = userList.filter(u => u.role !== 'admin');
+
+  if (admins.length) {
+    html += `<div class="section-hd" style="margin-top:4px">Admins (${admins.length})</div>`;
+    admins.forEach(u => { html += userCardHTML(u); });
+  }
+  if (members.length) {
+    html += `<div class="section-hd" style="margin-top:16px">Members (${members.length})</div>`;
+    members.forEach(u => { html += userCardHTML(u); });
+  }
+  if (!userList.length) {
+    html += `<div class="people-empty">No users yet. Share and import data to see others here.</div>`;
+  }
+
+  scroll.innerHTML = html;
+}
+
+function userCardHTML(u) {
+  const isMe = u.uid === myUid;
+  const canManage = isAdmin() && !isMe;
+  const initials = avatarInitials(u.name);
+  const displayName = u.name || '(unnamed)';
+  const joinDate = u.joinedAt ? new Date(u.joinedAt).toLocaleDateString('en-GB',{month:'short',year:'numeric'}) : '';
+
+  let badges = '';
+  if (u.role === 'admin') badges += `<span class="u-badge badge-admin">⭐ Admin</span> `;
+  if (isMe) badges += `<span class="u-badge badge-you">You</span>`;
+  if (!isMe && u.role !== 'admin') badges += `<span class="u-badge badge-general">Member</span>`;
+
+  // Count events by this user
+  let evCount = 0;
+  Object.values(events).forEach(arr => arr.forEach(ev => { if (ev.author === u.name && u.name) evCount++; }));
+
+  let actions = '';
+  if (canManage) {
+    if (u.role === 'general') {
+      actions += `<button class="u-action-btn" onclick="promoteUser('${u.uid}')">Make admin</button>`;
+    } else {
+      actions += `<button class="u-action-btn" onclick="demoteUser('${u.uid}')">Remove admin</button>`;
+    }
+    actions += `<button class="u-action-btn danger" onclick="askRemoveUser('${u.uid}','${esc(displayName)}')">Remove</button>`;
+  }
+
+  return `
+    <div class="user-card">
+      <div class="u-avatar" style="background:${u.avatarColor||'#888'}">${esc(initials)}</div>
+      <div class="u-info">
+        <div class="u-name">${esc(displayName)}</div>
+        <div class="u-meta">${evCount} event${evCount!==1?'s':''} added${joinDate?' · joined '+joinDate:''}</div>
+        <div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px">${badges}</div>
+      </div>
+      ${actions ? `<div class="u-actions">${actions}</div>` : ''}
+    </div>`;
+}
+
+// ── USER MANAGEMENT ──
+function promoteUser(uid) {
+  if (!isAdmin() || uid === myUid) return;
+  users[uid].role = 'admin';
+  saveUsers();
+  renderPeople();
+  toast(`${users[uid].name || 'User'} is now an admin`);
+}
+
+function demoteUser(uid) {
+  if (!isAdmin() || uid === myUid) return;
+  // Check at least one admin remains
+  const adminCount = Object.values(users).filter(u=>u.role==='admin').length;
+  if (adminCount <= 1) { toast('At least one admin must remain'); return; }
+  users[uid].role = 'general';
+  saveUsers();
+  renderPeople();
+  toast(`${users[uid].name || 'User'} is now a member`);
+}
+
+function askRemoveUser(uid, name) {
+  if (!isAdmin() || uid === myUid) return;
+  showConfirm(
+    `Remove ${name}?`,
+    `This will remove ${name} from the user list. Their events will stay on the calendar. You can re-add them by importing their data.`,
+    'Remove user',
+    () => removeUser(uid)
+  );
+}
+
+function removeUser(uid) {
+  if (!isAdmin() || uid === myUid) return;
+  delete users[uid];
+  saveUsers();
+  renderPeople();
+  toast('User removed');
+}
+
+// ── CONFIRM DIALOG ──
+function showConfirm(title, msg, okLabel, cb) {
+  document.getElementById('confirmTitle').textContent = title;
+  document.getElementById('confirmMsg').textContent = msg;
+  document.getElementById('confirmOkBtn').textContent = okLabel;
+  confirmCallback = cb;
+  document.getElementById('confirmDialog').classList.add('show');
+}
+function confirmOk() {
+  document.getElementById('confirmDialog').classList.remove('show');
+  if (confirmCallback) { confirmCallback(); confirmCallback = null; }
+}
+function confirmCancel() {
+  document.getElementById('confirmDialog').classList.remove('show');
+  confirmCallback = null;
+}
+
+// ── CALENDAR RENDER ──
+function renderCalendar() {
+  document.getElementById('monthTitle').textContent = MONTHS[month] + ' ' + year;
+  const grid = document.getElementById('calGrid');
+  grid.innerHTML = '';
+  const firstDay = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month+1, 0).getDate();
+  const prevDays = new Date(year, month, 0).getDate();
+  const total = Math.ceil((firstDay + daysInMonth) / 7) * 7;
+
+  for (let i = 0; i < total; i++) {
+    let d, m2, y2, other = false;
+    if (i < firstDay) {
+      d = prevDays - firstDay + i + 1; m2 = month-1; y2 = year;
+      if (m2 < 0) { m2 = 11; y2--; } other = true;
+    } else if (i >= firstDay + daysInMonth) {
+      d = i - firstDay - daysInMonth + 1; m2 = month+1; y2 = year;
+      if (m2 > 11) { m2 = 0; y2++; } other = true;
+    } else {
+      d = i - firstDay + 1; m2 = month; y2 = year;
+    }
+    const dt = new Date(y2, m2, d);
+    const isToday = dt.getTime() === todayD.getTime();
+    const isSel = selDate && selDate.y===y2 && selDate.m===m2 && selDate.d===d;
+    const key = dateKey(y2, m2, d);
+    const evs = events[key] || [];
+    const cell = document.createElement('div');
+    cell.className = 'cal-day' + (other?' other':'') + (isToday?' today':'') + (isSel?' selected':'');
+    cell.onclick = () => { selDate={y:y2,m:m2,d}; renderCalendar(); renderPanel(); };
+    const numEl = document.createElement('div');
+    numEl.className = 'day-num';
+    numEl.textContent = d;
+    cell.appendChild(numEl);
+    evs.slice(0,2).forEach(ev => {
+      const chip = document.createElement('div');
+      chip.className = 'ev-chip';
+      chip.style.background = ev.color + '28';
+      chip.style.color = ev.color;
+      chip.textContent = ev.title;
+      cell.appendChild(chip);
+    });
+    if (evs.length > 2) {
+      const more = document.createElement('div');
+      more.className = 'ev-more';
+      more.textContent = `+${evs.length-2} more`;
+      cell.appendChild(more);
+    }
+    grid.appendChild(cell);
+  }
+}
+
+function changeMonth(dir) {
+  month += dir;
+  if (month > 11) { month = 0; year++; }
+  if (month < 0) { month = 11; year--; }
+  selDate = null;
+  document.getElementById('panelDate').textContent = 'Select a day';
+  document.getElementById('addBtn').style.display = 'none';
+  document.getElementById('eventList').innerHTML = '<div class="no-day">Tap a day to see events</div>';
+  renderCalendar();
+}
+
+// ── DAY PANEL ──
+function renderPanel() {
+  if (!selDate) return;
+  const dt = new Date(selDate.y, selDate.m, selDate.d);
+  document.getElementById('panelDate').textContent =
+    DAYS_LONG[dt.getDay()] + ', ' + MONTHS_SHORT[selDate.m] + ' ' + selDate.d + ' ' + selDate.y;
+  document.getElementById('addBtn').style.display = 'flex';
+  const key = dateKey(selDate.y, selDate.m, selDate.d);
+  const evs = events[key] || [];
+  const list = document.getElementById('eventList');
+  list.innerHTML = '';
+  if (!evs.length) {
+    list.innerHTML = '<div class="empty-state">No events — tap Add to create one</div>';
+    return;
+  }
+  evs.forEach(ev => {
+    const row = document.createElement('div');
+    row.className = 'ev-row';
+    let meta = '';
+    if (ev.time) { meta += formatTime(ev.time); if (ev.endTime) meta += ' – ' + formatTime(ev.endTime); }
+    if (ev.author) meta += (meta?' · ':'') + ev.author;
+    if (ev.notes) meta += (meta?'\n':'') + ev.notes;
+    // Can delete: own event, or admin
+    const canDel = ev.authorUid === myUid || isAdmin();
+    row.innerHTML = `
+      <div class="ev-bar" style="background:${ev.color}"></div>
+      <div class="ev-body">
+        <div class="ev-title-txt">${esc(ev.title)}</div>
+        ${meta?`<div class="ev-meta" style="white-space:pre-line">${esc(meta)}</div>`:''}
+      </div>
+      ${canDel?`<button class="ev-del" onclick="deleteEv('${key}','${ev.id}')" aria-label="Delete">×</button>`:''}
+    `;
+    list.appendChild(row);
+  });
+}
+
+// ── ADD EVENT ──
+function openAdd() {
+  if (!myUser.name) { openProfile(); return; }
+  document.getElementById('evTitle').value = '';
+  document.getElementById('evTime').value = '';
+  document.getElementById('evEndTime').value = '';
+  document.getElementById('evNotes').value = '';
+  selColor = COLORS[0];
+  buildColorRow();
+  document.getElementById('saveBtn').disabled = true;
+  document.getElementById('addSheetTitle').textContent = 'New event — ' + MONTHS_SHORT[selDate.m] + ' ' + selDate.d;
+  show('addOverlay');
+  setTimeout(() => document.getElementById('evTitle').focus(), 300);
+}
+function closeAdd() { hide('addOverlay'); }
+function checkSave() {
+  document.getElementById('saveBtn').disabled = !document.getElementById('evTitle').value.trim();
+}
+function saveEvent() {
+  const title = document.getElementById('evTitle').value.trim();
+  if (!title) return;
+  const key = dateKey(selDate.y, selDate.m, selDate.d);
+  if (!events[key]) events[key] = [];
+  events[key].push({
+    id: Date.now().toString(36) + Math.random().toString(36).slice(2,5),
+    title,
+    time: document.getElementById('evTime').value || null,
+    endTime: document.getElementById('evEndTime').value || null,
+    notes: document.getElementById('evNotes').value.trim() || null,
+    color: selColor,
+    author: myUser.name,
+    authorUid: myUid,
+    created: Date.now()
+  });
+  events[key].sort((a,b) => (a.time||'99:99').localeCompare(b.time||'99:99'));
+  closeAdd();
+  saveEvents();
+  renderCalendar();
+  renderPanel();
+}
+function deleteEv(key, id) {
+  const ev = (events[key]||[]).find(e=>e.id===id);
+  if (!ev) return;
+  if (ev.authorUid !== myUid && !isAdmin()) { toast('Only admins can delete others\' events'); return; }
+  events[key] = events[key].filter(e=>e.id!==id);
+  if (!events[key].length) delete events[key];
+  saveEvents();
+  renderCalendar();
+  renderPanel();
+}
+
+// ── COLOR PICKER ──
+function buildColorRow() {
+  const row = document.getElementById('colorRow');
+  row.innerHTML = '';
+  COLORS.forEach(c => {
+    const dot = document.createElement('div');
+    dot.className = 'color-dot' + (c===selColor?' on':'');
+    dot.style.background = c;
+    dot.onclick = () => {
+      selColor = c;
+      document.querySelectorAll('.color-dot').forEach(x=>x.classList.remove('on'));
+      dot.classList.add('on');
+    };
+    row.appendChild(dot);
+  });
+}
+
+// ── SHARE ──
+function openShare() {
+  const data = { events, users, exportedBy: myUid, exportedAt: new Date().toISOString(), version: 3 };
+  document.getElementById('exportCode').textContent = JSON.stringify(data);
+  document.getElementById('importCode').value = '';
+  show('shareOverlay');
+}
+function copyExport() {
+  const txt = document.getElementById('exportCode').textContent;
+  navigator.clipboard.writeText(txt).then(() => toast('Copied to clipboard')).catch(() => toast('Select and copy manually'));
+}
+function shareExport() {
+  const txt = document.getElementById('exportCode').textContent;
+  if (navigator.share) { navigator.share({ title: 'Shared Calendar data', text: txt }).catch(()=>{}); }
+  else copyExport();
+}
+function importData() {
+  const raw = document.getElementById('importCode').value.trim();
+  if (!raw) return;
+  try {
+    const parsed = JSON.parse(raw);
+    // Merge events
+    const incoming = parsed.events || parsed;
+    let addedEvs = 0;
+    Object.entries(incoming).forEach(([key, evs]) => {
+      if (!events[key]) events[key] = [];
+      const existingIds = new Set(events[key].map(e=>e.id));
+      evs.forEach(ev => { if (!existingIds.has(ev.id)) { events[key].push(ev); addedEvs++; } });
+      events[key].sort((a,b)=>(a.time||'99:99').localeCompare(b.time||'99:99'));
+    });
+    // Merge users (don't overwrite existing, don't import self)
+    let addedUsers = 0;
+    if (parsed.users) {
+      Object.entries(parsed.users).forEach(([uid, u]) => {
+        if (uid === myUid) return; // never overwrite self
+        if (!users[uid]) {
+          users[uid] = { ...u, role: 'general' }; // imported users start as general
+          addedUsers++;
+        } else {
+          // Update name if changed but keep local role
+          if (u.name) users[uid].name = u.name;
+        }
+      });
+    }
+    localStorage.setItem('cal_events_v2', JSON.stringify(events));
+    saveUsers();
+    updateSyncStatus();
+    renderCalendar();
+    if (selDate) renderPanel();
+    renderPeople();
+    hide('shareOverlay');
+    toast(`Imported ${addedEvs} event${addedEvs!==1?'s':''}, ${addedUsers} new user${addedUsers!==1?'s':''}`);
+  } catch(e) {
+    toast('Invalid data — check the pasted text');
+  }
+}
+
+// ── INSTALL ──
+function checkInstall() {
+  const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+  if (isStandalone) return;
+  window.addEventListener('beforeinstallprompt', e => {
+    e.preventDefault(); deferredInstall = e;
+    document.getElementById('installBanner').classList.remove('hidden');
+  });
+  const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  const isSafari = /safari/i.test(navigator.userAgent) && !/chrome/i.test(navigator.userAgent);
+  if (isIOS && isSafari && !localStorage.getItem('install_dismissed')) {
+    document.getElementById('installBanner').classList.remove('hidden');
+  }
+}
+function triggerInstall() {
+  if (deferredInstall) {
+    deferredInstall.prompt();
+    deferredInstall.userChoice.then(() => document.getElementById('installBanner').classList.add('hidden'));
+  } else {
+    toast('Tap the Share icon (□↑) then "Add to Home Screen"');
+  }
+}
+function dismissInstall(e) {
+  e.stopPropagation();
+  document.getElementById('installBanner').classList.add('hidden');
+  localStorage.setItem('install_dismissed','1');
+}
+
+// ── UTILITIES ──
+function show(id) { document.getElementById(id).classList.add('show'); }
+function hide(id) { document.getElementById(id).classList.remove('show'); }
+function overlayClick(e, id) { if (e.target.id===id) hide(id); }
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function formatTime(t) {
+  if (!t) return '';
+  const [h,m] = t.split(':').map(Number);
+  return `${h%12||12}:${String(m).padStart(2,'0')}${h>=12?'pm':'am'}`;
+}
+let toastTimer;
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>el.classList.remove('show'), 2800);
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { ['addOverlay','profileOverlay','shareOverlay'].forEach(hide); confirmCancel(); }
+  if (e.key === 'Enter' && document.getElementById('addOverlay').classList.contains('show')) saveEvent();
+  if (e.key === 'Enter' && document.getElementById('profileOverlay').classList.contains('show')) saveName();
+});
+
+init();
+</script>
+</body>
+</html>
