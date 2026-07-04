@@ -42,7 +42,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-seri
 .header-right{display:flex;align-items:center;gap:8px}
 .header-btn{width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,0.2);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#fff;font-size:16px;transition:background 0.15s;position:relative}
 .header-btn:active{background:rgba(255,255,255,0.35)}
-.header-btn .admin-dot{position:absolute;top:2px;right:2px;width:8px;height:8px;background:#fac775;border-radius:50%;border:1.5px solid var(--blue)}
 .user-avatar-btn{width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,0.25);border:1.5px solid rgba(255,255,255,0.5);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;color:#fff}
 
 /* BOTTOM TAB BAR */
@@ -108,7 +107,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-seri
 .badge-admin{background:#faeeda;color:#854f0b}
 .badge-you{background:var(--blue-light);color:var(--blue-dark)}
 .badge-general{background:var(--surface-2);color:var(--text-3)}
-.u-actions{display:flex;gap:6px;flex-shrink:0}
+.u-actions{display:flex;gap:6px;flex-shrink:0;flex-direction:column}
 .u-action-btn{padding:6px 10px;border-radius:8px;border:0.5px solid var(--border-strong);background:var(--surface-1);color:var(--text-2);font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap}
 .u-action-btn:active{background:var(--surface-2)}
 .u-action-btn.danger{color:var(--coral);border-color:var(--coral)}
@@ -162,8 +161,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-seri
 .confirm-msg{font-size:14px;color:var(--text-2);line-height:1.5;margin-bottom:20px}
 .confirm-btns{display:flex;gap:10px}
 
-/* SHARE extras */
-.share-code{font-family:monospace;font-size:12px;background:var(--surface-1);border:0.5px solid var(--border-strong);border-radius:8px;padding:10px 12px;word-break:break-all;color:var(--text-2);max-height:100px;overflow-y:auto;margin-bottom:12px}
+/* PROFILE */
 .profile-row{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:0.5px solid var(--border);margin-bottom:12px}
 .profile-avatar{width:48px;height:48px;border-radius:50%;background:var(--blue);display:flex;align-items:center;justify-content:center;color:#fff;font-size:18px;font-weight:600;flex-shrink:0}
 .profile-info{flex:1}
@@ -172,10 +170,28 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-seri
 .role-row{display:flex;gap:8px;margin-top:4px}
 .role-chip{padding:4px 10px;border-radius:20px;font-size:12px;font-weight:600}
 
+/* CONNECTING OVERLAY */
+.connecting-screen{position:fixed;inset:0;background:var(--blue);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;z-index:999}
+.connecting-screen.hidden{display:none}
+.connecting-icon{font-size:48px}
+.connecting-text{color:#fff;font-size:16px;font-weight:500}
+.connecting-sub{color:rgba(255,255,255,0.7);font-size:13px}
+.spinner{width:32px;height:32px;border:3px solid rgba(255,255,255,0.3);border-top-color:#fff;border-radius:50%;animation:spin 0.8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
 @media(min-height:700px){.cal-day{min-height:82px}}
 </style>
 </head>
 <body>
+
+<!-- Connecting screen shown until Firebase is ready -->
+<div class="connecting-screen" id="connectingScreen">
+  <div class="connecting-icon">📅</div>
+  <div class="spinner"></div>
+  <div class="connecting-text">Shared Calendar</div>
+  <div class="connecting-sub" id="connectingMsg">Connecting to database…</div>
+</div>
+
 <div id="app">
 
   <!-- Install banner -->
@@ -192,11 +208,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-seri
       <div class="header-icon">📅</div>
       <div>
         <div class="header-title">Shared Calendar</div>
-        <div class="header-sub" id="syncStatus">Loading…</div>
+        <div class="header-sub" id="syncStatus">Connecting…</div>
       </div>
     </div>
     <div class="header-right">
-      <button class="header-btn" onclick="openShare()" title="Share / sync">⇅</button>
       <div class="user-avatar-btn" id="avatarBtn" onclick="openProfile()">?</div>
     </div>
   </div>
@@ -233,9 +248,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-seri
 
   <!-- ── PEOPLE VIEW ── -->
   <div class="view" id="viewPeople">
-    <div class="people-scroll" id="peopleScroll">
-      <!-- rendered by JS -->
-    </div>
+    <div class="people-scroll" id="peopleScroll"></div>
   </div>
 
   <!-- Tab bar -->
@@ -324,33 +337,27 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-seri
   </div>
 </div>
 
-<!-- Share/sync modal -->
-<div class="overlay" id="shareOverlay" onclick="overlayClick(event,'shareOverlay')">
-  <div class="sheet">
-    <div class="sheet-handle"></div>
-    <div class="sheet-title">Share & sync</div>
-    <div class="sheet-body">
-      <p style="font-size:13px;color:var(--text-2);margin-bottom:16px;line-height:1.5">
-        Export your events and user data, then send it to others. They import it to sync up.
-      </p>
-      <div class="field-lbl" style="margin-bottom:6px">Export</div>
-      <div class="share-code" id="exportCode">—</div>
-      <div class="sheet-actions" style="padding:0 0 12px;gap:8px">
-        <button class="btn-save-s" style="flex:1" onclick="copyExport()">📋 Copy</button>
-        <button class="btn-save-s" style="flex:1;background:var(--teal)" onclick="shareExport()">↗ Share</button>
-      </div>
-      <div style="border-top:0.5px solid var(--border);padding-top:14px;margin-top:4px">
-        <div class="field-lbl" style="margin-bottom:6px">Import from someone</div>
-        <textarea class="field-input" id="importCode" rows="3" placeholder="Paste exported data here…" style="resize:none;font-family:monospace;font-size:12px"></textarea>
-        <div class="sheet-actions" style="padding:8px 0 0">
-          <button class="btn-save-s" style="flex:1;background:var(--purple)" onclick="importData()">↓ Import & merge</button>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
+<script type="module">
+// ── FIREBASE SETUP ──
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getDatabase, ref, onValue, set, remove, get } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
-<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyCYgcClinoCEBfdzMg1rlv9NOufhZtP0g0",
+  authDomain: "shared-calendar-2dcc7.firebaseapp.com",
+  databaseURL: "https://shared-calendar-2dcc7-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "shared-calendar-2dcc7",
+  storageBucket: "shared-calendar-2dcc7.firebasestorage.app",
+  messagingSenderId: "568691403644",
+  appId: "1:568691403644:web:2b0b2b753badb5e097d2f9",
+  measurementId: "G-RH29LVEKGH"
+};
+
+const firebaseApp = initializeApp(firebaseConfig);
+const db = getDatabase(firebaseApp);
+const EVENTS_REF = 'calendar/events';
+const USERS_REF  = 'calendar/users';
+
 // ── CONSTANTS ──
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 const DAYS_LONG = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
@@ -364,118 +371,179 @@ let month = new Date().getMonth();
 let selDate = null;
 let selColor = COLORS[0];
 let events = {};
-let users = {};       // uid → { uid, name, role:'admin'|'general', joinedAt, avatarColor }
-let myUid = '';
+let users  = {};
+let myUid  = '';
 let myUser = null;
 let deferredInstall = null;
 let confirmCallback = null;
+let firebaseReady = false;
 const todayD = new Date(); todayD.setHours(0,0,0,0);
 
 // ── INIT ──
 function init() {
-  loadAll();
-  buildColorRow();
-  renderCalendar();
-  renderPeople();
-  checkInstall();
-
-  const params = new URLSearchParams(location.search);
-  if (params.get('view') === 'today') {
-    const t = new Date();
-    selDate = {y:t.getFullYear(), m:t.getMonth(), d:t.getDate()};
-    year = selDate.y; month = selDate.m;
-    renderCalendar(); renderPanel();
-  }
-  if (params.get('action') === 'add') {
-    const t = new Date();
-    selDate = {y:t.getFullYear(), m:t.getMonth(), d:t.getDate()};
-    renderCalendar(); renderPanel();
-    setTimeout(openAdd, 400);
-  }
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js').catch(() => {});
-  }
-}
-
-// ── STORAGE ──
-function loadAll() {
-  try { events = JSON.parse(localStorage.getItem('cal_events_v2') || '{}'); } catch(e) { events = {}; }
-  try { users = JSON.parse(localStorage.getItem('cal_users_v1') || '{}'); } catch(e) { users = {}; }
+  // Set up my local identity first
   myUid = localStorage.getItem('cal_myuid') || '';
-
-  // First launch: create this user
   if (!myUid) {
     myUid = 'u' + Date.now().toString(36) + Math.random().toString(36).slice(2,5);
     localStorage.setItem('cal_myuid', myUid);
   }
 
-  // Register / refresh this user in users map
-  const storedName = localStorage.getItem('cal_user') || '';
-  const isFirstUser = Object.keys(users).length === 0;
-  if (!users[myUid]) {
-    users[myUid] = {
-      uid: myUid,
-      name: storedName,
-      role: isFirstUser ? 'admin' : 'general', // first user is admin
-      joinedAt: Date.now(),
-      avatarColor: AVATAR_COLORS[Object.keys(users).length % AVATAR_COLORS.length]
-    };
-  } else {
-    // Keep name in sync
-    if (storedName && storedName !== users[myUid].name) {
-      users[myUid].name = storedName;
-    }
+  buildColorRow();
+  checkInstall();
+  listenToFirebase(); // connect and start listening — this drives everything else
+
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('./sw.js').catch(() => {});
   }
-  myUser = users[myUid];
-  saveUsers();
-  updateUserUI();
-  updateSyncStatus();
 }
 
+// ── FIREBASE LISTENERS ──
+// These fire immediately on connect and again every time data changes.
+// One phone saves → Firebase updates → other phone's listener fires → UI re-renders.
+function listenToFirebase() {
+  document.getElementById('connectingMsg').textContent = 'Connecting to database…';
+
+  // Listen to events
+  onValue(ref(db, EVENTS_REF), (snapshot) => {
+    events = snapshot.val() || {};
+    if (firebaseReady) {
+      // Already past first load — just re-render silently
+      renderCalendar();
+      if (selDate) renderPanel();
+      updateSyncStatus();
+    }
+  }, (error) => {
+    document.getElementById('connectingMsg').textContent = 'Connection failed. Check your internet.';
+  });
+
+  // Listen to users
+  onValue(ref(db, USERS_REF), (snapshot) => {
+    const fbUsers = snapshot.val() || {};
+
+    // Check if this is the very first user ever (no one in DB yet)
+    const isFirstEver = Object.keys(fbUsers).length === 0;
+
+    // Merge firebase users into local state
+    // We keep our own record authoritative locally, others come from Firebase
+    Object.entries(fbUsers).forEach(([uid, u]) => {
+      if (uid === myUid) return; // handle self separately below
+      users[uid] = u;
+    });
+
+    // Set up or refresh my own user record
+    const storedName = localStorage.getItem('cal_user') || '';
+    if (!users[myUid] && !fbUsers[myUid]) {
+      // Brand new user — first ever gets admin, others get general
+      users[myUid] = {
+        uid: myUid,
+        name: storedName,
+        role: isFirstEver ? 'admin' : 'general',
+        joinedAt: Date.now(),
+        avatarColor: AVATAR_COLORS[Object.keys(fbUsers).length % AVATAR_COLORS.length]
+      };
+    } else {
+      // Returning user — restore from Firebase but keep local name if set
+      users[myUid] = fbUsers[myUid] || users[myUid];
+      if (storedName) users[myUid].name = storedName;
+    }
+
+    myUser = users[myUid];
+
+    // Push my record up to Firebase
+    set(ref(db, USERS_REF + '/' + myUid), users[myUid]);
+
+    updateUserUI();
+    renderPeople();
+    updateSyncStatus();
+
+    if (!firebaseReady) {
+      // First load complete — hide connecting screen and show app
+      firebaseReady = true;
+      document.getElementById('connectingScreen').classList.add('hidden');
+      renderCalendar();
+
+      // Handle URL shortcuts
+      const params = new URLSearchParams(location.search);
+      if (params.get('view') === 'today') {
+        const t = new Date();
+        selDate = {y:t.getFullYear(), m:t.getMonth(), d:t.getDate()};
+        year = selDate.y; month = selDate.m;
+        renderCalendar(); renderPanel();
+      }
+      if (params.get('action') === 'add') {
+        const t = new Date();
+        selDate = {y:t.getFullYear(), m:t.getMonth(), d:t.getDate()};
+        renderCalendar(); renderPanel();
+        setTimeout(openAdd, 400);
+      }
+    }
+  }, (error) => {
+    document.getElementById('connectingMsg').textContent = 'Connection failed. Check your internet.';
+  });
+}
+
+// ── SAVE EVENTS TO FIREBASE ──
+// We write the full events object to Firebase.
+// Firebase then pushes the update to all other connected devices instantly.
 function saveEvents() {
-  localStorage.setItem('cal_events_v2', JSON.stringify(events));
-  updateSyncStatus();
-  toast('Saved');
+  updateSyncStatus('saving');
+  set(ref(db, EVENTS_REF), events)
+    .then(() => {
+      updateSyncStatus();
+      toast('Saved');
+    })
+    .catch(() => {
+      toast('Save failed — check your connection');
+      updateSyncStatus();
+    });
 }
-function saveUsers() {
+
+// ── SAVE A SINGLE USER TO FIREBASE ──
+function saveMyUser() {
+  if (!myUid || !users[myUid]) return;
   localStorage.setItem('cal_users_v1', JSON.stringify(users));
+  set(ref(db, USERS_REF + '/' + myUid), users[myUid]);
 }
-function updateSyncStatus() {
-  const count = Object.values(events).reduce((s,a)=>s+a.length,0);
+
+// ── SYNC STATUS ──
+function updateSyncStatus(state) {
+  const count = Object.values(events).reduce((s,a) => s + a.length, 0);
   const ucount = Object.keys(users).length;
-  document.getElementById('syncStatus').textContent = `${count} events · ${ucount} user${ucount!==1?'s':''}`;
+  if (state === 'saving') {
+    document.getElementById('syncStatus').textContent = 'Saving…';
+  } else {
+    document.getElementById('syncStatus').textContent = `🟢 Live · ${count} event${count!==1?'s':''} · ${ucount} user${ucount!==1?'s':''}`;
+  }
 }
-function dateKey(y,m,d) { return `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`; }
+
+function dateKey(y, m, d) {
+  return `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+}
 function isAdmin() { return myUser && myUser.role === 'admin'; }
 
 // ── USER UI ──
 function updateUserUI() {
   myUser = users[myUid];
   if (!myUser) return;
-  const initials = myUser.name ? myUser.name.trim().split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase() : '?';
+  const initials = myUser.name
+    ? myUser.name.trim().split(' ').map(w => w[0]).join('').slice(0,2).toUpperCase()
+    : '?';
   document.getElementById('avatarBtn').textContent = initials;
   document.getElementById('profileAvatar').textContent = initials;
   document.getElementById('profileAvatar').style.background = myUser.avatarColor || 'var(--blue)';
   document.getElementById('profileNameDisplay').textContent = myUser.name || 'Not set';
-  // Role chips in profile
   const rr = document.getElementById('profileRoleRow');
   rr.innerHTML = `<span class="role-chip ${myUser.role==='admin'?'badge-admin':'badge-general'}">${myUser.role==='admin'?'⭐ Admin':'Member'}</span>`;
-  // Admin dot on people tab button
-  const peopleTab = document.getElementById('tabPeopleBtn');
-  peopleTab.innerHTML = `<span class="tab-icon">👥</span>People`;
 }
 
-function openProfile() {
-  document.getElementById('nameInput').value = myUser.name || '';
-  show('profileOverlay');
-}
+function openProfile() { document.getElementById('nameInput').value = myUser ? myUser.name || '' : ''; show('profileOverlay'); }
 function closeProfile() { hide('profileOverlay'); }
 function saveName() {
   const v = document.getElementById('nameInput').value.trim();
-  if (v) {
+  if (v && myUser) {
     myUser.name = v;
     localStorage.setItem('cal_user', v);
-    saveUsers();
+    saveMyUser();
     updateUserUI();
     renderPeople();
   }
@@ -484,36 +552,35 @@ function saveName() {
 
 // ── TAB SWITCHING ──
 function switchTab(tab) {
-  document.getElementById('viewCalendar').classList.toggle('active', tab==='calendar');
-  document.getElementById('viewPeople').classList.toggle('active', tab==='people');
-  document.getElementById('tabCalBtn').classList.toggle('active', tab==='calendar');
-  document.getElementById('tabPeopleBtn').classList.toggle('active', tab==='people');
+  document.getElementById('viewCalendar').classList.toggle('active', tab === 'calendar');
+  document.getElementById('viewPeople').classList.toggle('active', tab === 'people');
+  document.getElementById('tabCalBtn').classList.toggle('active', tab === 'calendar');
+  document.getElementById('tabPeopleBtn').classList.toggle('active', tab === 'people');
   if (tab === 'people') renderPeople();
 }
 
 // ── PEOPLE VIEW ──
 function avatarInitials(name) {
-  return name ? name.trim().split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase() : '?';
+  return name ? name.trim().split(' ').map(w => w[0]).join('').slice(0,2).toUpperCase() : '?';
 }
 
 function renderPeople() {
   const scroll = document.getElementById('peopleScroll');
-  const userList = Object.values(users).sort((a,b) => {
+  const userList = Object.values(users).sort((a, b) => {
     if (a.role === 'admin' && b.role !== 'admin') return -1;
     if (b.role === 'admin' && a.role !== 'admin') return 1;
-    return (a.name||'').localeCompare(b.name||'');
+    return (a.name || '').localeCompare(b.name || '');
   });
 
   let html = '';
 
-  // Info box for admins
   if (isAdmin()) {
-    html += `<div class="people-info-box">⭐ You're an admin. You can promote members to admin or remove users from the calendar.</div>`;
+    html += `<div class="people-info-box">⭐ You're an admin. You can promote members to admin or remove users.</div>`;
   } else {
-    html += `<div class="people-info-box" style="background:var(--surface-2);color:var(--text-2)">This is everyone with access to this shared calendar. Admins can manage membership.</div>`;
+    html += `<div class="people-info-box" style="background:var(--surface-2);color:var(--text-2)">Everyone with access to this shared calendar. Admins manage membership.</div>`;
   }
 
-  const admins = userList.filter(u => u.role === 'admin');
+  const admins  = userList.filter(u => u.role === 'admin');
   const members = userList.filter(u => u.role !== 'admin');
 
   if (admins.length) {
@@ -525,7 +592,7 @@ function renderPeople() {
     members.forEach(u => { html += userCardHTML(u); });
   }
   if (!userList.length) {
-    html += `<div class="people-empty">No users yet. Share and import data to see others here.</div>`;
+    html += `<div class="people-empty">No users yet.</div>`;
   }
 
   scroll.innerHTML = html;
@@ -536,25 +603,28 @@ function userCardHTML(u) {
   const canManage = isAdmin() && !isMe;
   const initials = avatarInitials(u.name);
   const displayName = u.name || '(unnamed)';
-  const joinDate = u.joinedAt ? new Date(u.joinedAt).toLocaleDateString('en-GB',{month:'short',year:'numeric'}) : '';
+  const joinDate = u.joinedAt
+    ? new Date(u.joinedAt).toLocaleDateString('en-GB', {month:'short', year:'numeric'})
+    : '';
 
   let badges = '';
   if (u.role === 'admin') badges += `<span class="u-badge badge-admin">⭐ Admin</span> `;
   if (isMe) badges += `<span class="u-badge badge-you">You</span>`;
   if (!isMe && u.role !== 'admin') badges += `<span class="u-badge badge-general">Member</span>`;
 
-  // Count events by this user
   let evCount = 0;
-  Object.values(events).forEach(arr => arr.forEach(ev => { if (ev.author === u.name && u.name) evCount++; }));
+  Object.values(events).forEach(arr => arr.forEach(ev => {
+    if (ev.authorUid === u.uid) evCount++;
+  }));
 
   let actions = '';
   if (canManage) {
-    if (u.role === 'general') {
+    if (u.role !== 'admin') {
       actions += `<button class="u-action-btn" onclick="promoteUser('${u.uid}')">Make admin</button>`;
     } else {
       actions += `<button class="u-action-btn" onclick="demoteUser('${u.uid}')">Remove admin</button>`;
     }
-    actions += `<button class="u-action-btn danger" onclick="askRemoveUser('${u.uid}','${esc(displayName)}')">Remove</button>`;
+    actions += `<button class="u-action-btn danger" onclick="askRemoveUser('${u.uid}','${esc(displayName)}')">Remove user</button>`;
   }
 
   return `
@@ -573,18 +643,17 @@ function userCardHTML(u) {
 function promoteUser(uid) {
   if (!isAdmin() || uid === myUid) return;
   users[uid].role = 'admin';
-  saveUsers();
+  set(ref(db, USERS_REF + '/' + uid), users[uid]);
   renderPeople();
   toast(`${users[uid].name || 'User'} is now an admin`);
 }
 
 function demoteUser(uid) {
   if (!isAdmin() || uid === myUid) return;
-  // Check at least one admin remains
-  const adminCount = Object.values(users).filter(u=>u.role==='admin').length;
+  const adminCount = Object.values(users).filter(u => u.role === 'admin').length;
   if (adminCount <= 1) { toast('At least one admin must remain'); return; }
   users[uid].role = 'general';
-  saveUsers();
+  set(ref(db, USERS_REF + '/' + uid), users[uid]);
   renderPeople();
   toast(`${users[uid].name || 'User'} is now a member`);
 }
@@ -593,7 +662,7 @@ function askRemoveUser(uid, name) {
   if (!isAdmin() || uid === myUid) return;
   showConfirm(
     `Remove ${name}?`,
-    `This will remove ${name} from the user list. Their events will stay on the calendar. You can re-add them by importing their data.`,
+    `This will remove ${name} from the calendar. Their events will stay. They can rejoin by opening the app again.`,
     'Remove user',
     () => removeUser(uid)
   );
@@ -602,8 +671,10 @@ function askRemoveUser(uid, name) {
 function removeUser(uid) {
   if (!isAdmin() || uid === myUid) return;
   delete users[uid];
-  saveUsers();
+  // Remove from Firebase — this will push to all devices
+  remove(ref(db, USERS_REF + '/' + uid));
   renderPeople();
+  updateSyncStatus();
   toast('User removed');
 }
 
@@ -645,19 +716,23 @@ function renderCalendar() {
     } else {
       d = i - firstDay + 1; m2 = month; y2 = year;
     }
+
     const dt = new Date(y2, m2, d);
     const isToday = dt.getTime() === todayD.getTime();
     const isSel = selDate && selDate.y===y2 && selDate.m===m2 && selDate.d===d;
     const key = dateKey(y2, m2, d);
     const evs = events[key] || [];
+
     const cell = document.createElement('div');
     cell.className = 'cal-day' + (other?' other':'') + (isToday?' today':'') + (isSel?' selected':'');
-    cell.onclick = () => { selDate={y:y2,m:m2,d}; renderCalendar(); renderPanel(); };
+    cell.onclick = () => { selDate = {y:y2, m:m2, d}; renderCalendar(); renderPanel(); };
+
     const numEl = document.createElement('div');
     numEl.className = 'day-num';
     numEl.textContent = d;
     cell.appendChild(numEl);
-    evs.slice(0,2).forEach(ev => {
+
+    evs.slice(0, 2).forEach(ev => {
       const chip = document.createElement('div');
       chip.className = 'ev-chip';
       chip.style.background = ev.color + '28';
@@ -678,7 +753,7 @@ function renderCalendar() {
 function changeMonth(dir) {
   month += dir;
   if (month > 11) { month = 0; year++; }
-  if (month < 0) { month = 11; year--; }
+  if (month < 0)  { month = 11; year--; }
   selDate = null;
   document.getElementById('panelDate').textContent = 'Select a day';
   document.getElementById('addBtn').style.display = 'none';
@@ -693,30 +768,32 @@ function renderPanel() {
   document.getElementById('panelDate').textContent =
     DAYS_LONG[dt.getDay()] + ', ' + MONTHS_SHORT[selDate.m] + ' ' + selDate.d + ' ' + selDate.y;
   document.getElementById('addBtn').style.display = 'flex';
+
   const key = dateKey(selDate.y, selDate.m, selDate.d);
   const evs = events[key] || [];
   const list = document.getElementById('eventList');
   list.innerHTML = '';
+
   if (!evs.length) {
     list.innerHTML = '<div class="empty-state">No events — tap Add to create one</div>';
     return;
   }
+
   evs.forEach(ev => {
     const row = document.createElement('div');
     row.className = 'ev-row';
     let meta = '';
     if (ev.time) { meta += formatTime(ev.time); if (ev.endTime) meta += ' – ' + formatTime(ev.endTime); }
-    if (ev.author) meta += (meta?' · ':'') + ev.author;
-    if (ev.notes) meta += (meta?'\n':'') + ev.notes;
-    // Can delete: own event, or admin
+    if (ev.author) meta += (meta ? ' · ' : '') + ev.author;
+    if (ev.notes)  meta += (meta ? '\n' : '') + ev.notes;
     const canDel = ev.authorUid === myUid || isAdmin();
     row.innerHTML = `
       <div class="ev-bar" style="background:${ev.color}"></div>
       <div class="ev-body">
         <div class="ev-title-txt">${esc(ev.title)}</div>
-        ${meta?`<div class="ev-meta" style="white-space:pre-line">${esc(meta)}</div>`:''}
+        ${meta ? `<div class="ev-meta" style="white-space:pre-line">${esc(meta)}</div>` : ''}
       </div>
-      ${canDel?`<button class="ev-del" onclick="deleteEv('${key}','${ev.id}')" aria-label="Delete">×</button>`:''}
+      ${canDel ? `<button class="ev-del" onclick="deleteEv('${key}','${ev.id}')" aria-label="Delete">×</button>` : ''}
     `;
     list.appendChild(row);
   });
@@ -724,7 +801,7 @@ function renderPanel() {
 
 // ── ADD EVENT ──
 function openAdd() {
-  if (!myUser.name) { openProfile(); return; }
+  if (!myUser || !myUser.name) { openProfile(); return; }
   document.getElementById('evTitle').value = '';
   document.getElementById('evTime').value = '';
   document.getElementById('evEndTime').value = '';
@@ -732,7 +809,8 @@ function openAdd() {
   selColor = COLORS[0];
   buildColorRow();
   document.getElementById('saveBtn').disabled = true;
-  document.getElementById('addSheetTitle').textContent = 'New event — ' + MONTHS_SHORT[selDate.m] + ' ' + selDate.d;
+  document.getElementById('addSheetTitle').textContent =
+    'New event — ' + MONTHS_SHORT[selDate.m] + ' ' + selDate.d;
   show('addOverlay');
   setTimeout(() => document.getElementById('evTitle').focus(), 300);
 }
@@ -740,6 +818,7 @@ function closeAdd() { hide('addOverlay'); }
 function checkSave() {
   document.getElementById('saveBtn').disabled = !document.getElementById('evTitle').value.trim();
 }
+
 function saveEvent() {
   const title = document.getElementById('evTitle').value.trim();
   if (!title) return;
@@ -748,25 +827,30 @@ function saveEvent() {
   events[key].push({
     id: Date.now().toString(36) + Math.random().toString(36).slice(2,5),
     title,
-    time: document.getElementById('evTime').value || null,
+    time:    document.getElementById('evTime').value    || null,
     endTime: document.getElementById('evEndTime').value || null,
-    notes: document.getElementById('evNotes').value.trim() || null,
-    color: selColor,
-    author: myUser.name,
+    notes:   document.getElementById('evNotes').value.trim() || null,
+    color:   selColor,
+    author:  myUser.name,
     authorUid: myUid,
     created: Date.now()
   });
-  events[key].sort((a,b) => (a.time||'99:99').localeCompare(b.time||'99:99'));
+  events[key].sort((a, b) => (a.time||'99:99').localeCompare(b.time||'99:99'));
   closeAdd();
+  // Write to Firebase → other phones receive the update instantly via their listener
   saveEvents();
   renderCalendar();
   renderPanel();
 }
+
 function deleteEv(key, id) {
-  const ev = (events[key]||[]).find(e=>e.id===id);
+  const ev = (events[key] || []).find(e => e.id === id);
   if (!ev) return;
-  if (ev.authorUid !== myUid && !isAdmin()) { toast('Only admins can delete others\' events'); return; }
-  events[key] = events[key].filter(e=>e.id!==id);
+  if (ev.authorUid !== myUid && !isAdmin()) {
+    toast("Only admins can delete others' events");
+    return;
+  }
+  events[key] = events[key].filter(e => e.id !== id);
   if (!events[key].length) delete events[key];
   saveEvents();
   renderCalendar();
@@ -779,72 +863,15 @@ function buildColorRow() {
   row.innerHTML = '';
   COLORS.forEach(c => {
     const dot = document.createElement('div');
-    dot.className = 'color-dot' + (c===selColor?' on':'');
+    dot.className = 'color-dot' + (c === selColor ? ' on' : '');
     dot.style.background = c;
     dot.onclick = () => {
       selColor = c;
-      document.querySelectorAll('.color-dot').forEach(x=>x.classList.remove('on'));
+      document.querySelectorAll('.color-dot').forEach(x => x.classList.remove('on'));
       dot.classList.add('on');
     };
     row.appendChild(dot);
   });
-}
-
-// ── SHARE ──
-function openShare() {
-  const data = { events, users, exportedBy: myUid, exportedAt: new Date().toISOString(), version: 3 };
-  document.getElementById('exportCode').textContent = JSON.stringify(data);
-  document.getElementById('importCode').value = '';
-  show('shareOverlay');
-}
-function copyExport() {
-  const txt = document.getElementById('exportCode').textContent;
-  navigator.clipboard.writeText(txt).then(() => toast('Copied to clipboard')).catch(() => toast('Select and copy manually'));
-}
-function shareExport() {
-  const txt = document.getElementById('exportCode').textContent;
-  if (navigator.share) { navigator.share({ title: 'Shared Calendar data', text: txt }).catch(()=>{}); }
-  else copyExport();
-}
-function importData() {
-  const raw = document.getElementById('importCode').value.trim();
-  if (!raw) return;
-  try {
-    const parsed = JSON.parse(raw);
-    // Merge events
-    const incoming = parsed.events || parsed;
-    let addedEvs = 0;
-    Object.entries(incoming).forEach(([key, evs]) => {
-      if (!events[key]) events[key] = [];
-      const existingIds = new Set(events[key].map(e=>e.id));
-      evs.forEach(ev => { if (!existingIds.has(ev.id)) { events[key].push(ev); addedEvs++; } });
-      events[key].sort((a,b)=>(a.time||'99:99').localeCompare(b.time||'99:99'));
-    });
-    // Merge users (don't overwrite existing, don't import self)
-    let addedUsers = 0;
-    if (parsed.users) {
-      Object.entries(parsed.users).forEach(([uid, u]) => {
-        if (uid === myUid) return; // never overwrite self
-        if (!users[uid]) {
-          users[uid] = { ...u, role: 'general' }; // imported users start as general
-          addedUsers++;
-        } else {
-          // Update name if changed but keep local role
-          if (u.name) users[uid].name = u.name;
-        }
-      });
-    }
-    localStorage.setItem('cal_events_v2', JSON.stringify(events));
-    saveUsers();
-    updateSyncStatus();
-    renderCalendar();
-    if (selDate) renderPanel();
-    renderPeople();
-    hide('shareOverlay');
-    toast(`Imported ${addedEvs} event${addedEvs!==1?'s':''}, ${addedUsers} new user${addedUsers!==1?'s':''}`);
-  } catch(e) {
-    toast('Invalid data — check the pasted text');
-  }
 }
 
 // ── INSTALL ──
@@ -872,17 +899,17 @@ function triggerInstall() {
 function dismissInstall(e) {
   e.stopPropagation();
   document.getElementById('installBanner').classList.add('hidden');
-  localStorage.setItem('install_dismissed','1');
+  localStorage.setItem('install_dismissed', '1');
 }
 
 // ── UTILITIES ──
 function show(id) { document.getElementById(id).classList.add('show'); }
 function hide(id) { document.getElementById(id).classList.remove('show'); }
-function overlayClick(e, id) { if (e.target.id===id) hide(id); }
+function overlayClick(e, id) { if (e.target.id === id) hide(id); }
 function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function formatTime(t) {
   if (!t) return '';
-  const [h,m] = t.split(':').map(Number);
+  const [h, m] = t.split(':').map(Number);
   return `${h%12||12}:${String(m).padStart(2,'0')}${h>=12?'pm':'am'}`;
 }
 let toastTimer;
@@ -891,11 +918,34 @@ function toast(msg) {
   el.textContent = msg;
   el.classList.add('show');
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(()=>el.classList.remove('show'), 2800);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 2800);
 }
 
+// Expose functions called from HTML onclick attributes
+window.switchTab      = switchTab;
+window.changeMonth    = changeMonth;
+window.openAdd        = openAdd;
+window.closeAdd       = closeAdd;
+window.checkSave      = checkSave;
+window.saveEvent      = saveEvent;
+window.deleteEv       = deleteEv;
+window.openProfile    = openProfile;
+window.closeProfile   = closeProfile;
+window.saveName       = saveName;
+window.promoteUser    = promoteUser;
+window.demoteUser     = demoteUser;
+window.askRemoveUser  = askRemoveUser;
+window.confirmOk      = confirmOk;
+window.confirmCancel  = confirmCancel;
+window.triggerInstall = triggerInstall;
+window.dismissInstall = dismissInstall;
+window.overlayClick   = overlayClick;
+
 document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') { ['addOverlay','profileOverlay','shareOverlay'].forEach(hide); confirmCancel(); }
+  if (e.key === 'Escape') {
+    ['addOverlay','profileOverlay'].forEach(hide);
+    confirmCancel();
+  }
   if (e.key === 'Enter' && document.getElementById('addOverlay').classList.contains('show')) saveEvent();
   if (e.key === 'Enter' && document.getElementById('profileOverlay').classList.contains('show')) saveName();
 });
